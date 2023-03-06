@@ -1,0 +1,10 @@
+{
+  "domain": "pse_calendar",
+  "name": "PSE Calendar",
+  "codeowners": ["@pepellee"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/PePeLLee/home-assistant-pse-calendar",
+  "iot_class": "local_polling",
+  "requirements": []
+}
