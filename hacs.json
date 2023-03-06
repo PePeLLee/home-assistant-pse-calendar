@@ -1,0 +1,10 @@
+
+{
+    "name": "PSE Calendar",
+    "country": ["PL"],
+    "issue_tracker": "https://github.com/PePeLLee/home-assistant-pse-calendar",
+    "homeassistant": "2023.3.0",
+    "iot_class": "cloud_polling",
+    "zip_release": true,
+    "filename": "pse.zip"
+}
