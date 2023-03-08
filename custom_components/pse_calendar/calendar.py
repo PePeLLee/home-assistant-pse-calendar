@@ -10,9 +10,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-SCAN_INTERVAL = timedelta(minutes=30)
+SCAN_INTERVAL = timedelta(seconds=20)
 
 
 def setup_platform(
@@ -22,7 +22,7 @@ def setup_platform(
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Set up the sensor platform."""
-    add_entities([PSECalendar()])
+    add_entities([PSECalendar()], update_before_add=True)
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entities):
@@ -41,6 +41,9 @@ class PSECalendar(CalendarEntity):
         self.cr_time = None
         self.last_update = None
         self.cloud_response = None
+        self.last_network_pull = datetime(
+            year=2000, month=1, day=1, tzinfo=timezone.utc
+        )
 
     _attr_name = "PSE Calendar"
 
@@ -120,6 +123,9 @@ class PSECalendar(CalendarEntity):
     async def async_update(self):
         """Retrieve latest state."""
         now = datetime.now(ZoneInfo(self.hass.config.time_zone))
+        if now < self.last_network_pull + timedelta(minutes=30):
+            return
+        self.last_network_pull = now
         self.cloud_response = None
         await self.hass.async_add_executor_job(self.fetch_cloud_data)
 
