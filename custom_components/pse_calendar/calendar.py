@@ -4,6 +4,7 @@ import csv
 from zoneinfo import ZoneInfo
 
 import requests
+import logging
 
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
 from homeassistant.core import HomeAssistant
@@ -13,29 +14,22 @@ from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from datetime import datetime, timedelta, timezone
 
 SCAN_INTERVAL = timedelta(seconds=20)
-
-
-def setup_platform(
-    hass: HomeAssistant,
-    config: ConfigType,
-    add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None,
-) -> None:
-    """Set up the sensor platform."""
-    add_entities([PSECalendar()], update_before_add=True)
-
+_LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entities):
     """Konfiguracja za pomcą przepływu konfiguracji."""
-    async_add_entities([PSECalendar()])
+    
+    """This one is in use"""
+    async_add_entities([PSECalendar("ZALECANE OSZCZ", "PSE Oszczedzanie"), 
+                        PSECalendar("ZALECANE U", "PSE Uzywanie")])
 
 
 class PSECalendar(CalendarEntity):
     """Representation of a Sensor."""
+    
 
-    _attr_unique_id = "pse_calendar"
-
-    def __init__(self) -> None:
+    def __init__(self, search, name) -> None:
+        _LOGGER.info("PSE constructor"+name)
         super().__init__()
         self.ev = []
         self.cr_time = None
@@ -44,8 +38,10 @@ class PSECalendar(CalendarEntity):
         self.last_network_pull = datetime(
             year=2000, month=1, day=1, tzinfo=timezone.utc
         )
+        self._attr_unique_id = name.replace(" ", "_")
+        self._attr_name = name
+        self.searchKey = search
 
-    _attr_name = "PSE Calendar"
 
     async def async_get_events(
         self,
@@ -80,43 +76,55 @@ class PSECalendar(CalendarEntity):
     def fetch_cloud_data(self):
         """fetch today data"""
         now = datetime.now(ZoneInfo(self.hass.config.time_zone))
-        self.cloud_response = requests.get(
-            f"https://www.pse.pl/getcsv/-/export/csv/PL_GS/data/{now.strftime('%Y%m%d')}",
-            timeout=10,
-        )
+        try:
+            self.cloud_response = requests.get(
+                f"https://www.pse.pl/getcsv/-/export/csv/PL_GS/data/{now.strftime('%Y%m%d')}",
+                timeout=10,
+            )
+            self.cloud_response.encoding = 'ISO-8859-2'
+
+        except ReadTimeout:
+            self.cloud_response = ""
 
     def fetch_cloud_data_1(self):
         """fetch tomorrow data"""
         now = datetime.now(ZoneInfo(self.hass.config.time_zone)) + timedelta(days=1)
-        self.cloud_response = requests.get(
-            f"https://www.pse.pl/getcsv/-/export/csv/PL_GS/data/{now.strftime('%Y%m%d')}",
-            timeout=10,
-        )
+        try:
+            self.cloud_response = requests.get(
+                f"https://www.pse.pl/getcsv/-/export/csv/PL_GS/data/{now.strftime('%Y%m%d')}",
+                timeout=10,
+            )
+            self.cloud_response.encoding = 'ISO-8859-2'
+        except requests.exceptions.ReadTimeout:
+            self.cloud_response = ""
 
     def csv_to_events(self, csv_reader: csv, day: datetime):
         """Transform csv to events"""
         event_start = None
+        descr = None
         for row in csv_reader:
-            if row[3].startswith("ZALEC"):
+            if self.searchKey in row[3]:
                 if event_start is None:
                     event_start = int(row[1])
+                    descr = row[3]
             else:
                 if not event_start is None:
                     self.ev.append(
                         CalendarEvent(
                             day.replace(hour=event_start),
                             day.replace(hour=int(row[1])),
-                            "Reduce usage",
+                            descr,
                             description="https://www.pse.pl/dane-systemowe/plany-pracy-kse/godziny-szczytu",
                         )
                     )
                     event_start = None
+                    descr = None
         if not event_start is None:
             self.ev.append(
                 CalendarEvent(
                     day.replace(hour=event_start),
                     day.replace(hour=0) + timedelta(days=1),
-                    "Reduce usage",
+                    descr,
                 )
             )
 
