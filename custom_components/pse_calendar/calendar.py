@@ -20,7 +20,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
     """Konfiguracja za pomcą przepływu konfiguracji."""
     
     """This one is in use"""
-    async_add_entities([PSECalendar("ZALECANE OSZCZ", "PSE Oszczedzanie"), 
+    async_add_entities([PSECalendar("NE O", "PSE Oszczedzanie"), 
                         PSECalendar("ZALECANE U", "PSE Uzywanie")])
 
 
