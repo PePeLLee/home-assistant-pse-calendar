@@ -20,8 +20,8 @@ async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entitie
     """Konfiguracja za pomcą przepływu konfiguracji."""
     
     """This one is in use"""
-    async_add_entities([PSECalendar("NE O", "PSE Oszczedzanie"), 
-                        PSECalendar("ZALECANE U", "PSE Uzywanie")])
+    async_add_entities([PSECalendar(2, "PSE Oszczedzanie"),
+                        PSECalendar(0, "PSE Uzywanie")])
 
 
 class PSECalendar(CalendarEntity):
@@ -74,47 +74,33 @@ class PSECalendar(CalendarEntity):
                 return ev
 
     def fetch_cloud_data(self):
-        """fetch today data"""
-        now = datetime.now(ZoneInfo(self.hass.config.time_zone))
+        now = datetime.now()
+        url = f"https://api.raporty.pse.pl/api/pdgsz?$filter=business_date ge '{now.strftime('%Y-%m-%d')}'"
         try:
-            self.cloud_response = requests.get(
-                f"https://www.pse.pl/getcsv/-/export/csv/PL_GS/data/{now.strftime('%Y%m%d')}",
-                timeout=10,
-            )
+            self.cloud_response = requests.get( url, timeout=10)
             self.cloud_response.encoding = 'ISO-8859-2'
-
         except ReadTimeout:
             self.cloud_response = ""
 
-    def fetch_cloud_data_1(self):
-        """fetch tomorrow data"""
-        now = datetime.now(ZoneInfo(self.hass.config.time_zone)) + timedelta(days=1)
-        try:
-            self.cloud_response = requests.get(
-                f"https://www.pse.pl/getcsv/-/export/csv/PL_GS/data/{now.strftime('%Y%m%d')}",
-                timeout=10,
-            )
-            self.cloud_response.encoding = 'ISO-8859-2'
-        except requests.exceptions.ReadTimeout:
-            self.cloud_response = ""
 
-    def csv_to_events(self, csv_reader: csv, day: datetime):
-        """Transform csv to events"""
+    def json_to_ev(self, json):
+        description="https://raporty.pse.pl/?report=PDGSZ&state=Funkcjonowanie%20KSE,Plany%20pracy%20KSE,Ograniczenia%20sieciowe,Funkcjonowanie%20RB"
         event_start = None
+        tz = ZoneInfo(self.hass.config.time_zone)
         descr = None
-        for row in csv_reader:
-            if self.searchKey in row[3]:
+        for i in json["value"]:
+            if self.searchKey == i['znacznik'] :
                 if event_start is None:
-                    event_start = int(row[1])
-                    descr = row[3]
+                    event_start = datetime.strptime(i['udtczas'],"%Y-%m-%d %H:%M").replace(tzinfo=tz)
+                    descr = self._attr_name
             else:
                 if not event_start is None:
                     self.ev.append(
                         CalendarEvent(
-                            day.replace(hour=event_start),
-                            day.replace(hour=int(row[1])),
+                            event_start,
+                            datetime.strptime(i['udtczas'],"%Y-%m-%d %H:%M").replace(tzinfo=tz)-timedelta(seconds=1),
                             descr,
-                            description="https://www.pse.pl/dane-systemowe/plany-pracy-kse/godziny-szczytu",
+                            description=description
                         )
                     )
                     event_start = None
@@ -125,8 +111,10 @@ class PSECalendar(CalendarEntity):
                     day.replace(hour=event_start),
                     day.replace(hour=0) + timedelta(days=1),
                     descr,
+                    description=description
                 )
             )
+
 
     async def async_update(self):
         """Retrieve latest state."""
@@ -141,16 +129,5 @@ class PSECalendar(CalendarEntity):
             return False
         self.ev.clear()
 
-        csv_output = csv.reader(self.cloud_response.text.splitlines(), delimiter=";")
-        now = now.replace(minute=0).replace(second=0)
-        self.csv_to_events(csv_output, now)
+        self.json_to_ev(self.cloud_response.json())
 
-        self.cloud_response = None
-        await self.hass.async_add_executor_job(self.fetch_cloud_data_1)
-
-        if self.cloud_response is None or self.cloud_response.status_code != 200:
-            return False
-
-        csv_output = csv.reader(self.cloud_response.text.splitlines(), delimiter=";")
-        now = now.replace(minute=0).replace(second=0) + timedelta(days=1)
-        self.csv_to_events(csv_output, now)
