@@ -87,30 +87,27 @@ class PSECalendar(CalendarEntity):
         description="https://raporty.pse.pl/?report=PDGSZ&state=Funkcjonowanie%20KSE,Plany%20pracy%20KSE,Ograniczenia%20sieciowe,Funkcjonowanie%20RB"
         event_start = None
         tz = ZoneInfo(self.hass.config.time_zone)
-        descr = None
         for i in json["value"]:
             if self.searchKey == i['znacznik'] :
                 if event_start is None:
                     event_start = datetime.strptime(i['udtczas'],"%Y-%m-%d %H:%M").replace(tzinfo=tz)
-                    descr = self._attr_name
             else:
                 if not event_start is None:
                     self.ev.append(
                         CalendarEvent(
                             event_start,
                             datetime.strptime(i['udtczas'],"%Y-%m-%d %H:%M").replace(tzinfo=tz)-timedelta(seconds=1),
-                            descr,
+                            self._attr_name,
                             description=description
                         )
                     )
                     event_start = None
-                    descr = None
         if not event_start is None:
             self.ev.append(
                 CalendarEvent(
-                    day.replace(hour=event_start),
-                    day.replace(hour=0) + timedelta(days=1),
-                    descr,
+                    event_start,
+                    datetime.strptime(i['udtczas'],"%Y-%m-%d %H:%M").replace(tzinfo=tz)+ timedelta(hours=1),
+                    self._attr_name,
                     description=description
                 )
             )
