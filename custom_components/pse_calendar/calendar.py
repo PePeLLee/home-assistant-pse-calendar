@@ -90,13 +90,13 @@ class PSECalendar(CalendarEntity):
         for i in json["value"]:
             if self.searchKey == i['znacznik'] :
                 if event_start is None:
-                    event_start = datetime.strptime(i['udtczas'],"%Y-%m-%d %H:%M").replace(tzinfo=tz)
+                    event_start = datetime.strptime(i['udtczas'],"%Y-%m-%d %H:%M:%S").replace(tzinfo=tz)
             else:
                 if not event_start is None:
                     self.ev.append(
                         CalendarEvent(
                             event_start,
-                            datetime.strptime(i['udtczas'],"%Y-%m-%d %H:%M").replace(tzinfo=tz)-timedelta(seconds=1),
+                            datetime.strptime(i['udtczas'],"%Y-%m-%d %H:%M:%S").replace(tzinfo=tz)-timedelta(seconds=1),
                             self._attr_name,
                             description=description
                         )
@@ -106,7 +106,7 @@ class PSECalendar(CalendarEntity):
             self.ev.append(
                 CalendarEvent(
                     event_start,
-                    datetime.strptime(i['udtczas'],"%Y-%m-%d %H:%M").replace(tzinfo=tz)+ timedelta(hours=1),
+                    datetime.strptime(i['udtczas'],"%Y-%m-%d %H:%M:%S").replace(tzinfo=tz)+ timedelta(hours=1),
                     self._attr_name,
                     description=description
                 )
