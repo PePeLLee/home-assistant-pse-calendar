@@ -75,7 +75,9 @@ class PSECalendar(CalendarEntity):
 
     def fetch_cloud_data(self):
         now = datetime.now()
-        url = f"https://api.raporty.pse.pl/api/pdgsz?$filter=business_date ge '{now.strftime('%Y-%m-%d')}'"
+        # url = f"https://api.raporty.pse.pl/api/pdgsz?$filter=business_date ge '{now.strftime('%Y-%m-%d')}'"
+        #https://apimpdv2-bmgdhhajexe8aade.a01.azurefd.net/api/pdgsz?%24filter=%20is_active%20eq%20true%20and%20business_date%20eq%20%272025-06-15%27
+        url = f"https://apimpdv2-bmgdhhajexe8aade.a01.azurefd.net/api/pdgsz?$filter=is_active eq true and business_date ge '{now.strftime('%Y-%m-%d')}'"
         try:
             self.cloud_response = requests.get( url, timeout=10)
             self.cloud_response.encoding = 'ISO-8859-2'
@@ -88,15 +90,15 @@ class PSECalendar(CalendarEntity):
         event_start = None
         tz = ZoneInfo(self.hass.config.time_zone)
         for i in json["value"]:
-            if self.searchKey == i['znacznik'] :
+            if self.searchKey == i['usage_fcst'] :
                 if event_start is None:
-                    event_start = datetime.strptime(i['udtczas'],"%Y-%m-%d %H:%M:%S").replace(tzinfo=tz)
+                    event_start = datetime.strptime(i['dtime'],"%Y-%m-%d %H:%M").replace(tzinfo=tz)
             else:
                 if not event_start is None:
                     self.ev.append(
                         CalendarEvent(
                             event_start,
-                            datetime.strptime(i['udtczas'],"%Y-%m-%d %H:%M:%S").replace(tzinfo=tz)-timedelta(seconds=1),
+                            datetime.strptime(i['dtime'],"%Y-%m-%d %H:%M").replace(tzinfo=tz)-timedelta(seconds=1),
                             self._attr_name,
                             description=description
                         )
@@ -106,7 +108,7 @@ class PSECalendar(CalendarEntity):
             self.ev.append(
                 CalendarEvent(
                     event_start,
-                    datetime.strptime(i['udtczas'],"%Y-%m-%d %H:%M:%S").replace(tzinfo=tz)+ timedelta(hours=1),
+                    datetime.strptime(i['dtime'],"%Y-%m-%d %H:%M").replace(tzinfo=tz)+ timedelta(hours=1),
                     self._attr_name,
                     description=description
                 )
